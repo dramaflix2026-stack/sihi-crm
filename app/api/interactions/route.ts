@@ -10,6 +10,7 @@ export async function POST(req:NextRequest){
  try{
  const actor=await identity(req);if(!actor)return NextResponse.json({error:'Sessão expirada'},{status:401});
  const b=await req.json();
+ if(actor.role!=='admin'){const owner=await db().query('SELECT assigned_user_id FROM clients WHERE id=$1',[b.client_id]);if(!owner.rows.length||Number(owner.rows[0].assigned_user_id)!==actor.userId)return NextResponse.json({error:'Somente o responsável atribuído pode registrar contatos para este cliente.'},{status:403});}
  if(!/^\d+$/.test(String(b.client_id)))return NextResponse.json({error:'Cliente inválido'},{status:400});
  if(!['ligacao','whatsapp','email','nota'].includes(b.kind))return NextResponse.json({error:'Canal inválido'},{status:400});
  const description=String(b.description||'').trim().slice(0,10000);
