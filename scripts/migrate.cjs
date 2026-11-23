@@ -46,6 +46,17 @@ async function main() {
  CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_due ON follow_up_tasks(status,due_date);
  CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_client ON follow_up_tasks(client_id);
 
+ CREATE TABLE IF NOT EXISTS historical_notes (
+  id BIGSERIAL PRIMARY KEY,
+  client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  source_label TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(client_id,source_label)
+ );
+ CREATE INDEX IF NOT EXISTS idx_historical_notes_client ON historical_notes(client_id,id);
+
+
  `);
  console.log('SIHI CRM schema atualizado');
  } finally {await pool.end();}
