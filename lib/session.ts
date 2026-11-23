@@ -16,7 +16,7 @@ function fromBase64Url(s: string): Uint8Array {
 async function key(): Promise<CryptoKey> {
   const secret = process.env.CRM_ADMIN_PASSWORD;
   if (!secret) throw new Error("CRM_ADMIN_PASSWORD não configurada");
-  return crypto.subtle.importKey("raw",encoder.encode("SIHI CRM session v1:"+secret),"HMAC",false,["sign","verify"]);
+  return crypto.subtle.importKey("raw",encoder.encode("SIHI CRM session v1:"+secret),{name:"HMAC",hash:"SHA-256"},false,["sign","verify"]);
 }
 export async function createSession(): Promise<string> {
   const payload=JSON.stringify({v:1,exp:Math.floor(Date.now()/1000)+ttlSeconds});
