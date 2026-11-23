@@ -31,7 +31,10 @@ export async function validSession(token?:string):Promise<boolean> {
     if(!data||!signature||extra||data.length>1024) return false;
     const payload=JSON.parse(new TextDecoder().decode(fromBase64Url(data)));
     if(payload.v!==1||typeof payload.exp!=="number"||payload.exp<=Date.now()/1000||payload.exp>Date.now()/1000+ttlSeconds) return false;
-    return crypto.subtle.verify("HMAC",await key(),fromBase64Url(signature),encoder.encode(data));
+    const sig = fromBase64Url(signature);
+    const signatureBuffer = new Uint8Array(new ArrayBuffer(sig.length));
+    signatureBuffer.set(sig);
+    return crypto.subtle.verify("HMAC",await key(),signatureBuffer.buffer,encoder.encode(data));
   } catch {return false}
 }
 export function equalSecrets(a:string,b:string):boolean {
