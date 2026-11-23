@@ -30,6 +30,22 @@ async function main() {
  CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
  CREATE INDEX IF NOT EXISTS idx_clients_follow_up ON clients(next_follow_up);
  CREATE INDEX IF NOT EXISTS idx_interactions_client ON interactions(client_id, created_at DESC);
+
+ CREATE TABLE IF NOT EXISTS follow_up_tasks (
+ id BIGSERIAL PRIMARY KEY,
+ client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+ title VARCHAR(250) NOT NULL,
+ description TEXT NOT NULL DEFAULT '',
+ due_date DATE NOT NULL,
+ priority VARCHAR(12) NOT NULL DEFAULT 'normal' CHECK (priority IN ('baixa','normal','alta')),
+ status VARCHAR(12) NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente','concluida','cancelada')),
+ assigned_to VARCHAR(120) NOT NULL DEFAULT '',
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ completed_at TIMESTAMPTZ
+ );
+ CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_due ON follow_up_tasks(status,due_date);
+ CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_client ON follow_up_tasks(client_id);
+
  `);
  console.log('SIHI CRM schema atualizado');
  } finally {await pool.end();}
