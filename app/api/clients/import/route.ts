@@ -5,7 +5,7 @@ export async function POST(req:NextRequest){
  try{
   const body=await req.json();
   if(!Array.isArray(body.clients)||body.clients.length<1||body.clients.length>200)return NextResponse.json({error:'Envie entre 1 e 200 clientes.'},{status:400});
-  const prepared=body.clients.map((c:Record<string,unknown>,i:number)=>{
+  const prepared: Array<{member_id:string;customer_name:string;segmentation:string;profile:string;countries:string;products:string;phone:string;original_notes:string;issues:string;benefits:string}> = (body.clients as Record<string,unknown>[]).map((c:Record<string,unknown>,i:number)=>{
    const val=(k:string,max=12000)=>typeof c?.[k]==='string'?String(c[k]).trim().slice(0,max):'';
    const member_id=val('member_id',32);
    const customer_name=val('customer_name',200);
