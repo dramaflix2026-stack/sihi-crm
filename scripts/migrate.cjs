@@ -68,6 +68,41 @@ async function main() {
  );
  CREATE INDEX IF NOT EXISTS idx_client_translations_client ON client_translations(client_id,note_id);
 
+ CREATE TABLE IF NOT EXISTS crm_users(
+ id BIGSERIAL PRIMARY KEY,full_name VARCHAR(160) NOT NULL,
+ username VARCHAR(80) NOT NULL UNIQUE,password_hash TEXT NOT NULL,
+ role VARCHAR(16) NOT NULL DEFAULT 'agent' CHECK(role IN ('admin','agent')),
+ active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+ );
+ ALTER TABLE clients ADD COLUMN IF NOT EXISTS assigned_user_id BIGINT REFERENCES crm_users(id) ON DELETE SET NULL;
+ CREATE INDEX IF NOT EXISTS idx_clients_assigned_user ON clients(assigned_user_id);
+ CREATE TABLE IF NOT EXISTS client_assignments(
+ id BIGSERIAL PRIMARY KEY,client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+ assigned_user_id BIGINT REFERENCES crm_users(id) ON DELETE SET NULL,
+ assigned_by VARCHAR(120) NOT NULL,assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ previous_user_id BIGINT REFERENCES crm_users(id) ON DELETE SET NULL
+ );
+ CREATE TABLE IF NOT EXISTS recovered_orders(
+ id BIGSERIAL PRIMARY KEY,
+ client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
+ responsible_user_id BIGINT NOT NULL REFERENCES crm_users(id) ON DELETE RESTRICT,
+ order_reference VARCHAR(120) NOT NULL UNIQUE,
+ amount NUMERIC(14,2) NOT NULL CHECK(amount>0),
+ currency VARCHAR(3) NOT NULL DEFAULT 'USD' CHECK(currency IN ('USD','BRL')),
+ commission_rate NUMERIC(6,4) NOT NULL DEFAULT 0.03 CHECK(commission_rate=0.03),
+ purchase_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+ commission_status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK(commission_status IN ('pending','approved','paid','rejected')),
+ notes TEXT NOT NULL DEFAULT '',
+ created_by VARCHAR(120) NOT NULL,
+ confirmed_by VARCHAR(120),confirmed_at TIMESTAMPTZ,
+ approved_by VARCHAR(120),approved_at TIMESTAMPTZ,
+ paid_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ CONSTRAINT commission_approval_requires_purchase CHECK(commission_status IN ('pending','rejected') OR purchase_confirmed)
+ );
+ CREATE INDEX IF NOT EXISTS idx_orders_user ON recovered_orders(responsible_user_id);
+ CREATE INDEX IF NOT EXISTS idx_orders_client ON recovered_orders(client_id);
+
+
 
 
  `);
