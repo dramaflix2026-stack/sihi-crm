@@ -4,7 +4,7 @@ async function main(){
  if(!encoded){console.log('SIHI private seed not provided; skipping.');return}
  if(!process.env.DATABASE_URL)throw Error('DATABASE_URL ausente');
  const entries=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
- if(!Array.isArray(entries)||entries.length!==12)throw Error('Expected 12 initial customer records');
+ if(!Array.isArray(entries)||entries.length!==13)throw Error('Expected 13 initial customer records');
  const pool=new Pool({connectionString:process.env.DATABASE_URL,max:1});
  const client=await pool.connect();let added=0,existing=0,notes=0;
  try{
