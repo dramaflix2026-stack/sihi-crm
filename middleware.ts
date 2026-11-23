@@ -21,4 +21,4 @@ export function middleware(req: NextRequest) {
   if (!allowed) return new NextResponse('Acesso restrito ao SIHI CRM.', { status:401, headers:{'WWW-Authenticate':'Basic realm="SIHI CRM"', 'Cache-Control':'no-store'} });
   return NextResponse.next();
 }
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|api/health).*)'] };
