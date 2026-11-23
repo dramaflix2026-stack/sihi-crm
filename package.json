@@ -5,17 +5,20 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "db:migrate": "node scripts/migrate.cjs"
   },
   "dependencies": {
     "next": "^15.5.9",
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "pg": "^8.13.3"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
     "@types/react": "^19.0.0",
     "@types/node": "^22.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "@types/pg": "^8.11.11"
   }
 }
