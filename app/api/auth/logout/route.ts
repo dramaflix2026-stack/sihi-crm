@@ -1,0 +1,7 @@
+import {NextResponse} from 'next/server';
+import {cookieName} from '../../../../lib/session';
+export async function POST(){
+ const r=NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});
+ r.cookies.set(cookieName,'',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:0});
+ return r;
+}
