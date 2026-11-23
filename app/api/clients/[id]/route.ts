@@ -1,10 +1,13 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '../../../../lib/db';
+import {identity} from '../../../../lib/access';
 const allowedText=['customer_name','segmentation','profile','countries','products','phone','original_notes','issues','benefits'] as const;
 export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}>}){
  const {id}=await params;
  if(!/^\d+$/.test(id))return NextResponse.json({error:'ID inválido'},{status:400});
  try{
+  const actor=await identity(req);if(!actor)return NextResponse.json({error:'Sessão expirada'},{status:401});
+  if(actor.role!=='admin'){const owner=await db().query('SELECT assigned_user_id FROM clients WHERE id=$1',[id]);if(!owner.rows.length||Number(owner.rows[0].assigned_user_id)!==actor.userId)return NextResponse.json({error:'Edição restrita ao responsável do cliente.'},{status:403});}
   const b=await req.json();
   if(!b||typeof b!=='object'||Array.isArray(b))return NextResponse.json({error:'Dados inválidos'},{status:400});
   const setters:string[]=[];const values:(string|null|boolean)[]=[];
