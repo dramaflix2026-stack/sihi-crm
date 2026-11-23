@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {cookieName,readSession} from './lib/session';
-const adminPaths=['/api/team','/api/assignments','/api/orders'];
+const adminPaths=['/api/team','/api/assignments'];
 export async function middleware(req:NextRequest){
  const path=req.nextUrl.pathname;
  if(path==='/api/health'||path==='/api/auth/login'||path==='/api/auth/logout')return NextResponse.next();
@@ -19,7 +19,7 @@ export async function middleware(req:NextRequest){
  }
  // Financial records and assignment mutations have server-side authorization;
  // UI pages stay visible to the shared team.
- if(session.role!=='admin'&&adminPaths.some(prefix=>path.startsWith(prefix))&&req.method!=='GET')
+ if(session.role!=='admin'&&(adminPaths.some(prefix=>path===prefix||path.startsWith(prefix+'/'))||/^\/api\/orders\/\d+$/.test(path))&&req.method!=='GET')
    return NextResponse.json({error:'Operação reservada ao administrador'},{status:403});
  return NextResponse.next();
 }
