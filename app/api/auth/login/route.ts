@@ -10,7 +10,7 @@ export async function POST(req:NextRequest){
   const expectedUser=process.env.CRM_ADMIN_USER;
   const expectedPassword=process.env.CRM_ADMIN_PASSWORD;
   if(!expectedUser||!expectedPassword)return NextResponse.json({error:'Login indisponível'},{status:503});
-  const allowed=equalSecrets(user,expectedUser)&equalSecrets(password,expectedPassword);
+  const allowed=equalSecrets(user,expectedUser) && equalSecrets(password,expectedPassword);
   if(!allowed)return NextResponse.json({error:'Credenciais inválidas'},{status:401,headers:{'Cache-Control':'no-store'}});
   const response=NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});
   response.cookies.set(cookieName,await createSession(),{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:ttlSeconds});
