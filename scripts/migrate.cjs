@@ -82,6 +82,7 @@ async function main() {
  assigned_by VARCHAR(120) NOT NULL,assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  previous_user_id BIGINT REFERENCES crm_users(id) ON DELETE SET NULL
  );
+ ALTER TABLE interactions ADD COLUMN IF NOT EXISTS performed_by VARCHAR(120);
  CREATE TABLE IF NOT EXISTS recovered_orders(
  id BIGSERIAL PRIMARY KEY,
  client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
