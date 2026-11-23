@@ -56,6 +56,19 @@ async function main() {
  );
  CREATE INDEX IF NOT EXISTS idx_historical_notes_client ON historical_notes(client_id,id);
 
+ CREATE TABLE IF NOT EXISTS client_translations (
+ id BIGSERIAL PRIMARY KEY,
+ client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+ note_id BIGINT NOT NULL REFERENCES historical_notes(id) ON DELETE CASCADE,
+ language VARCHAR(5) NOT NULL CHECK (language IN ('pt-BR','en','zh-CN')),
+ translated_text TEXT NOT NULL,
+ method VARCHAR(12) NOT NULL DEFAULT 'manual' CHECK (method IN ('manual','ai')),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ UNIQUE(note_id,language)
+ );
+ CREATE INDEX IF NOT EXISTS idx_client_translations_client ON client_translations(client_id,note_id);
+
+
 
  `);
  console.log('SIHI CRM schema atualizado');
