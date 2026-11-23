@@ -1,0 +1,69 @@
+'use client';
+import {useEffect,useState,useCallback,useMemo} from 'react';
+import Link from 'next/link';
+import styles from './operacao.module.css';
+type User={id:number;full_name:string;username:string;role:string;active:boolean;clients_count:number};
+type Client={id:number;member_id:string|null;customer_name:string;segmentation:string;status:string;assigned_user_id:number|null;responsible_name:string|null};
+type Order={id:number;client_id:number;responsible_user_id:number;order_reference:string;amount:string;currency:string;purchase_confirmed:boolean;commission_status:string;commission_amount:string;customer_name:string;member_id:string|null;responsible_name:string;notes:string};
+type Me={userId:number|null;role:'admin'|'agent';username:string};
+const money=(v:string|number,currency:string)=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:currency==='BRL'?'BRL':'USD'});
+export default function OperacaoPage(){
+ const [me,setMe]=useState<Me|null>(null),[users,setUsers]=useState<User[]>([]),[clients,setClients]=useState<Client[]>([]),[orders,setOrders]=useState<Order[]>([]);
+ const [tab,setTab]=useState<'distribution'|'team'|'orders'>('distribution');
+ const [error,setError]=useState(''),[success,setSuccess]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
+ const [name,setName]=useState(''),[username,setUsername]=useState(''),[password,setPassword]=useState('');
+ const [responsible,setResponsible]=useState(''),[checked,setChecked]=useState<number[]>([]),[scope,setScope]=useState('todos'),[search,setSearch]=useState('');
+ const [order,setOrder]=useState({client_id:'',order_reference:'',amount:'',currency:'USD',notes:''});
+ const refresh=useCallback(async()=>{
+  const paths=['/api/auth/me','/api/team','/api/assignments','/api/orders'];
+  const r=await Promise.all(paths.map(p=>fetch(p,{cache:'no-store'})));
+  const j=await Promise.all(r.map(x=>x.json()));
+  if(r.some(x=>!x.ok))throw Error(j.find((v,i)=>!r[i].ok)?.error||'Não foi possível carregar dados.');
+  setMe(j[0].user);setUsers(j[1].users||[]);setClients(j[2].clients||[]);setOrders(j[3].orders||[]);
+ },[]);
+ useEffect(()=>{refresh().catch(e=>setError(e.message)).finally(()=>setLoading(false))},[refresh]);
+ const isAdmin=me?.role==='admin';
+ const filtered=useMemo(()=>clients.filter(c=>(scope==='todos'||(scope==='meus'?c.assigned_user_id===me?.userId:scope==='livres'?c.assigned_user_id===null:String(c.assigned_user_id)===scope))&&[c.customer_name,c.member_id,c.segmentation].join(' ').toLowerCase().includes(search.toLowerCase())),[clients,scope,search,me]);
+ const assignedClients=useMemo(()=>clients.filter(c=>c.assigned_user_id!==null&&users.some(u=>u.id===c.assigned_user_id&&u.active)),[clients,users]);
+ const selectedOrderClient=clients.find(c=>String(c.id)===order.client_id);
+ const stats=useMemo(()=>({total:clients.length,assigned:assignedClients.length,unassigned:clients.filter(c=>c.assigned_user_id===null).length,confirmed:orders.filter(o=>o.purchase_confirmed).length}),[clients,assignedClients,orders]);
+ const clear=()=>{setError('');setSuccess('')};
+ async function call(path:string,method:string,body:unknown,message:string){
+  setBusy(true);clear();
+  try{const r=await fetch(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(j.error||'Não foi possível salvar');await refresh();setSuccess(message);return true}
+  catch(e){setError((e as Error).message);return false}finally{setBusy(false)}
+ }
+ async function createUser(){
+  const ok=await call('/api/team','POST',{full_name:name,username,password},'Integrante cadastrado. Compartilhe as credenciais por um canal seguro.');
+  if(ok){setName('');setUsername('');setPassword('')}
+ }
+ async function distribute(){
+  const id=responsible==='none'?null:Number(responsible);
+  const ok=await call('/api/assignments','POST',{client_ids:checked,user_id:id},'Carteira distribuída com sucesso.');
+  if(ok)setChecked([]);
+ }
+ async function saveOrder(){
+  if(!selectedOrderClient?.assigned_user_id){setError('Atribua o cliente a um responsável antes de registrar um pedido.');return}
+  const ok=await call('/api/orders','POST',{...order,client_id:Number(order.client_id),responsible_user_id:selectedOrderClient.assigned_user_id,amount:Number(order.amount)},'Pedido registrado. Comissão pendente de confirmação da compra.');
+  if(ok)setOrder({client_id:'',order_reference:'',amount:'',currency:'USD',notes:''});
+ }
+ const statusLabel:Record<string,string>={pending:'Pendente',approved:'Aprovada',paid:'Paga',rejected:'Rejeitada'};
+ return <main className={styles.page}><div className={styles.wrap}><div className={styles.header}><div className={styles.brand}><span>S</span><b>SIHI CRM</b></div><div className={styles.links}><Link href="/">Dashboard</Link><Link href="/tarefas">Tarefas</Link><Link href="/historico">Histórico</Link></div></div>
+ <div className={styles.eyebrow}>OPERAÇÃO DE RECUPERAÇÃO / SIHI</div><h1>Gestão comercial e comissões</h1><p className={styles.subtitle}>Uma carteira geral para toda a equipe, com responsáveis definidos pela administração e comissões vinculadas a compras confirmadas.</p>
+ {loading?<div className={styles.card}>Carregando dados...</div>:<>
+ <div className={styles.stats}>{[['Clientes',stats.total],['Distribuídos',stats.assigned],['Sem responsável',stats.unassigned],['Compras confirmadas',stats.confirmed]].map(([name,value])=><div key={name} className={styles.stat}><small>{name}</small><b>{value}</b></div>)}</div>
+ <div className={styles.tabs}><button className={tab==='distribution'?styles.active:''} onClick={()=>{setTab('distribution');clear()}}>Distribuição</button><button className={tab==='team'?styles.active:''} onClick={()=>{setTab('team');clear()}}>Equipe</button><button className={tab==='orders'?styles.active:''} onClick={()=>{setTab('orders');clear()}}>Comissões (3%)</button></div>
+ {error&&<div role="alert" className={styles.error}>{error}</div>}{success&&<div className={styles.success}>{success}</div>}
+ {tab==='distribution'&&<section className={styles.card}><div className={styles.cardHead}><div><h2>Distribuir clientes</h2><p>Todos veem a carteira. Apenas o administrador define quem fará o contato.</p></div>{isAdmin&&<div className={styles.controls}><select value={responsible} onChange={e=>setResponsible(e.target.value)}><option value="">Escolher responsável</option><option value="none">Retirar atribuição</option>{users.filter(u=>u.active).map(u=><option key={u.id} value={u.id}>{u.full_name}</option>)}</select><button disabled={busy||!responsible||checked.length===0} className={styles.yellow} onClick={()=>void distribute()}>Atribuir {checked.length} cliente(s)</button></div>}</div>
+ <div className={styles.controls}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar cliente ou Member ID..." className={styles.search}/><select value={scope} onChange={e=>setScope(e.target.value)}><option value="todos">Todos os clientes</option><option value="meus">Minha carteira</option><option value="livres">Sem responsável</option>{users.map(u=><option key={u.id} value={u.id}>{u.full_name}</option>)}</select></div>
+ <div className={styles.scroll}><table><thead><tr>{isAdmin&&<th><input type="checkbox" aria-label="Selecionar clientes exibidos" checked={filtered.length>0&&filtered.every(c=>checked.includes(c.id))} onChange={e=>setChecked(e.target.checked?[...new Set([...checked,...filtered.map(c=>c.id)])]:checked.filter(id=>!filtered.some(c=>c.id===id)))}/></th>}<th>Cliente</th><th>Member ID</th><th>Segmentação</th><th>Status</th><th>Responsável</th></tr></thead><tbody>{filtered.map(c=><tr key={c.id}>{isAdmin&&<td><input type="checkbox" aria-label={'Selecionar '+c.customer_name} checked={checked.includes(c.id)} onChange={e=>setChecked(e.target.checked?[...checked,c.id]:checked.filter(id=>id!==c.id))}/></td>}<td><b>{c.customer_name}</b></td><td>{c.member_id||'—'}</td><td>{c.segmentation}</td><td>{c.status.replaceAll('_',' ')}</td><td>{c.responsible_name||'Não atribuído'}</td></tr>)}</tbody></table></div></section>}
+ {tab==='team'&&<section className={styles.card}><div className={styles.cardHead}><div><h2>Integrantes da operação</h2><p>Contas individuais. O administrador conserva o acesso de gestão pela conta principal.</p></div></div>
+ <div className={styles.members}>{users.map(u=><div className={styles.member} key={u.id}><div className={styles.avatar}>{u.full_name[0].toUpperCase()}</div><div className={styles.memberInfo}><b>{u.full_name}</b><small>@{u.username} · {u.clients_count} cliente(s) · {u.active?'Ativo':'Inativo'}</small></div>{isAdmin&&<button className={styles.mini} disabled={busy} onClick={()=>void call('/api/team/'+u.id,'PATCH',{active:!u.active},u.active?'Integrante desativado.':'Integrante reativado.')}>{u.active?'Desativar':'Ativar'}</button>}</div>)}</div>{!users.length&&<p className={styles.empty}>Nenhum integrante cadastrado. As contas não serão criadas automaticamente a partir dos nomes da conversa.</p>}
+ {isAdmin&&<div className={styles.form}><h3>Adicionar integrante</h3><div className={styles.grid}><label>Nome completo<input value={name} onChange={e=>setName(e.target.value)} placeholder="Nome da pessoa"/></label><label>Usuário<input value={username} onChange={e=>setUsername(e.target.value)} placeholder="ex.: joao.montenegro"/></label><label>Senha inicial (mín. 12 caracteres)<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" placeholder="Senha exclusiva"/></label></div><button className={styles.yellow} disabled={busy||!name.trim()||!username.trim()||password.length<12} onClick={()=>void createUser()}>Criar acesso</button></div>}
+ </section>}
+ {tab==='orders'&&<section className={styles.card}><div className={styles.cardHead}><div><h2>Pedidos e comissões</h2><p>Somente compras confirmadas podem gerar aprovação de 3%. Pedidos pendentes não geram comissão devida.</p></div></div>
+ <div className={styles.form}><h3>Registrar pedido para validação</h3><div className={styles.grid}><label>Cliente atribuído<select value={order.client_id} onChange={e=>setOrder({...order,client_id:e.target.value})}><option value="">Selecionar cliente</option>{clients.filter(c=>c.assigned_user_id!==null&&(isAdmin||c.assigned_user_id===me?.userId)).map(c=><option value={c.id} key={c.id}>{c.customer_name} — {c.member_id}</option>)}</select></label><label>Referência única do pedido<input value={order.order_reference} onChange={e=>setOrder({...order,order_reference:e.target.value})} placeholder="Código do pedido na SIHI"/></label><label>Valor da compra<input type="number" min="0.01" step="0.01" value={order.amount} onChange={e=>setOrder({...order,amount:e.target.value})} placeholder="1000.00"/></label><label>Moeda<select value={order.currency} onChange={e=>setOrder({...order,currency:e.target.value})}><option value="USD">USD — Dólar</option><option value="BRL">BRL — Real</option></select></label></div>{selectedOrderClient&&<p className={styles.note}>Responsável: {selectedOrderClient.responsible_name||'Não atribuído'} · Comissão potencial: {money(Number(order.amount||0)*.03,order.currency)} (ainda não devida)</p>}<label>Observações<input value={order.notes} onChange={e=>setOrder({...order,notes:e.target.value})} placeholder="Fonte de confirmação, informações comerciais..."/></label><button className={styles.yellow} disabled={busy||!order.client_id||!order.order_reference.trim()||!(Number(order.amount)>0)} onClick={()=>void saveOrder()}>Registrar pedido pendente</button></div>
+ <div className={styles.scroll}><table><thead><tr><th>Pedido / Cliente</th><th>Responsável</th><th>Compra</th><th>Comissão 3%</th><th>Situação</th><th>Validação</th></tr></thead><tbody>{orders.map(o=><tr key={o.id}><td><b>{o.order_reference}</b><small>{o.customer_name}</small></td><td>{o.responsible_name}</td><td>{money(o.amount,o.currency)}</td><td>{o.purchase_confirmed?money(o.commission_amount,o.currency):'Não elegível'}</td><td>{!o.purchase_confirmed?'Compra não confirmada':statusLabel[o.commission_status]||o.commission_status}</td><td>{isAdmin&&o.commission_status==='pending'&&<div className={styles.inline}>{!o.purchase_confirmed?<button className={styles.mini} disabled={busy} onClick={()=>void call('/api/orders/'+o.id,'PATCH',{action:'confirm'},'Compra confirmada.')}>Confirmar compra</button>:<button className={styles.mini} disabled={busy} onClick={()=>void call('/api/orders/'+o.id,'PATCH',{action:'approve'},'Comissão aprovada.')}>Aprovar 3%</button>}<button className={styles.mini} disabled={busy} onClick={()=>void call('/api/orders/'+o.id,'PATCH',{action:'reject'},'Comissão rejeitada.')}>Rejeitar</button></div>}{isAdmin&&o.commission_status==='approved'&&<button className={styles.mini} disabled={busy} onClick={()=>void call('/api/orders/'+o.id,'PATCH',{action:'paid'},'Comissão marcada como paga.')}>Marcar paga</button>}</td></tr>)}</tbody></table>{orders.length===0&&<div className={styles.empty}>Nenhum pedido registrado.</div>}</div></section>}
+ </>}
+ </div></main>
+}
