@@ -66,3 +66,28 @@ th{background:#faf9f3;color:#666}td{color:#444}td b{color:#171717}.tag.tentativa
 .nav-exit{margin-top:auto;color:#6d5e3b;border:1px solid #e9e1c6;font-weight:600}
 .nav-exit:hover{background:#fff2c2;color:#332900}
 @media(max-width:700px){.side .nav-exit{display:flex!important;font-size:0;justify-content:center;min-height:48px;padding:10px 4px;margin-top:auto}.side .nav-exit span{font-size:23px}}
+
+/* Correção navegação mobile: rolagem isolada e saída sempre acessível */
+@media(max-width:700px){
+ .side{
+   height:100dvh;
+   max-height:100dvh;
+   position:sticky;
+   top:0;
+   overflow-y:auto;
+   overscroll-behavior:contain;
+   padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
+ }
+ .side .brand,.side .navitem{flex-shrink:0}
+ .side .nav-exit{
+   position:sticky;
+   bottom:0;
+   z-index:3;
+   margin-top:auto;
+   background:#fff;
+   border:1px solid #e9e1c6;
+   min-height:50px;
+   box-shadow:0 -5px 12px rgba(255,255,255,.9);
+ }
+ .side .nav-exit:focus-visible{outline:3px solid #e2aa00;outline-offset:2px}
+}
