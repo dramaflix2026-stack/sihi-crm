@@ -21,6 +21,30 @@ export default function Home(){
  const load=useCallback(async()=>{try{const r=await fetch('/api/clients',{cache:'no-store'});const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro');setClients(j.clients||[]);setError('')}catch(e){setError((e as Error).message)}finally{setLoading(false)}},[]);
  useEffect(()=>{const aba=new URLSearchParams(window.location.search).get('aba');if(aba==='clientes')setView('clients');if(aba==='acompanhamentos')setView('tasks');if(aba==='relatorios')setView('reports');void load();void fetch('/api/tasks',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(j=>{const open=(j.tasks||[]).filter((t:{status:string})=>t.status==='pendente');const local=new Date();const today=[local.getFullYear(),String(local.getMonth()+1).padStart(2,'0'),String(local.getDate()).padStart(2,'0')].join('-');setTaskSummary({pending:open.length,overdue:open.filter((t:{due_date:string})=>t.due_date.slice(0,10)<today).length,today:open.filter((t:{due_date:string})=>t.due_date.slice(0,10)===today).length})}).catch(()=>{});},[load]);
  useEffect(()=>{let cancelado=false;async function traduzirResumos(){try{type Tradutor={translate:(s:string)=>Promise<string>};type API={Translator?:{availability?:(opts:{sourceLanguage:string;targetLanguage:string})=>Promise<string>;create:(opts:{sourceLanguage:string;targetLanguage:string})=>Promise<Tradutor>}};const recurso=(globalThis as typeof globalThis & API).Translator;if(!recurso||!clients.length)return;const opcoes={sourceLanguage:'en',targetLanguage:'pt'};if(recurso.availability&&await recurso.availability(opcoes)==='unavailable')return;const t=await recurso.create(opcoes);for(const cliente of clients){const texto=cliente.products||cliente.profile?.slice(0,55)||'';if(!texto||cancelado)continue;try{const traduzido=await t.translate(texto);if(!cancelado)setResumosPt(atual=>({...atual,[cliente.id]:traduzido}))}catch{}}}catch{}}void traduzirResumos();return()=>{cancelado=true}},[clients]);
+ useEffect(()=>{
+  if(!clients.length)return;
+  let cancelado=false;
+  const executar=async()=>{
+   for(const cliente of clients){
+    if(cancelado)return;
+    try{
+     const cache=await fetch('/api/clients/'+cliente.id+'/ptbr',{cache:'no-store'});
+     const dados=cache.ok?await cache.json():{};
+     let versao=dados.translations as Record<string,string>|undefined;
+     if(!versao){
+      const traduzir=await fetch('/api/clients/'+cliente.id+'/ptbr',{method:'POST'});
+      if(!traduzir.ok)continue;
+      versao=(await traduzir.json()).translations;
+     }
+     if(cancelado||!versao)return;
+     const resumo=versao.products||versao.profile;
+     if(resumo)setResumosPt(atual=>({...atual,[cliente.id]:resumo}));
+    }catch{}
+   }
+  };
+  void executar();
+  return()=>{cancelado=true};
+ },[clients.map(c=>c.id).join(',')]);
  const counts=useMemo(()=>({total:clients.length,sem_contato:clients.filter(x=>x.status==='sem_contato').length,tentativa:clients.filter(x=>x.status==='tentativa').length,em_negociacao:clients.filter(x=>x.status==='em_negociacao').length,recuperado:clients.filter(x=>x.status==='recuperado').length}),[clients]);
  const filtered=useMemo(()=>clients.filter(x=>(filter==='todos'||x.status===filter)&&[x.customer_name,x.member_id,x.profile,x.countries].join(' ').toLowerCase().includes(search.toLowerCase())),[clients,filter,search]);
  async function saveClient(){if(!draft.customer_name.trim()){setError('Informe o nome do cliente');return}setSaving(true);try{const r=await fetch('/api/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});const j=await r.json();if(!r.ok)throw Error(j.error);setForm(false);setDraft({...initial});await load();setError('')}catch(e){setError((e as Error).message)}finally{setSaving(false)}}
