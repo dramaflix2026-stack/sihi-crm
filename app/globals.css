@@ -15,3 +15,20 @@ html,body{background:#f7f7f5;color:var(--sihi-ink)}
 .field{border-color:#dedede;color:#222}.field:focus{outline:2px solid #ffdc58;outline-offset:1px}
 th{background:#faf9f3;color:#666}td{color:#444}td b{color:#171717}.tag.tentativa{background:#fff1b7;color:#806000}.linkbtn{color:#9b7600}
 .details{background:#faf9f5}.details b{color:#6b5b28}.alert{border-color:#f4e3a0;background:#fff9e7;color:#6d5c20}
+
+/* Ficha completa do cliente: navegação permanente */
+.side{position:sticky;top:0;height:100vh;overflow-y:auto}
+.clientfields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.clientfields .details{margin:0;min-width:0;overflow-wrap:anywhere}
+@media(max-width:700px){
+ .app{display:flex;align-items:stretch}
+ .side{display:flex!important;width:76px!important;min-width:76px;padding:14px 6px}
+ .side .brand{justify-content:center;gap:0;margin-bottom:24px}
+ .side .brand>div:last-child,.side .navlabel,.side .sidefooter{display:none}
+ .side .navitem{font-size:0;justify-content:center;padding:12px 4px;gap:0}
+ .side .navitem span{font-size:21px}
+ .content{min-width:0;flex:1}
+ .inner{padding:18px 12px}
+ .top{padding:0 12px;font-size:11px}
+ .clientfields{grid-template-columns:1fr}
+}
