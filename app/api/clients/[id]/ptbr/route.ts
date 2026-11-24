@@ -30,7 +30,8 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
   const r=await db().query('SELECT c.member_id,t.translations,t.source_updated_at FROM clients c LEFT JOIN client_ptbr_translations t ON t.client_id=c.id WHERE c.id=$1',[id]);
   if(!r.rows.length)return NextResponse.json({error:'Cliente não encontrado'},{status:404});
   const manual=traducoesConferidas[String(r.rows[0].member_id||'')]||{};
-  return NextResponse.json({translations:{...(r.rows[0].translations||{}),...manual},source_updated_at:Object.keys(manual).length?null:r.rows[0].source_updated_at},{headers:{'Cache-Control':'no-store'}});
+  const dados={...(r.rows[0].translations||{}),...manual};
+  return NextResponse.json({translations:Object.keys(dados).length?dados:null,source_updated_at:Object.keys(manual).length?null:r.rows[0].source_updated_at},{headers:{'Cache-Control':'no-store'}});
  }
  catch{return NextResponse.json({error:'Falha ao consultar tradução'},{status:500})}
 }
