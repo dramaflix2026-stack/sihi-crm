@@ -6,7 +6,7 @@ const fields=['profile','countries','products','original_notes','issues','benefi
 
 async function traduzirSemChave(texto:string):Promise<string>{
  if(!texto.trim())return texto;
- const partes=texto.match(/[\\s\\S]{1,1100}/g)||[];
+ const partes=texto.match(/[\s\S]{1,1100}/g)||[];
  const traduzidas:string[]=[];
  for(const parte of partes){
   const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q='+encodeURIComponent(parte);
@@ -44,8 +44,8 @@ export async function POST(_req:NextRequest,{params}:{params:Promise<{id:string}
    try{response=await fetch('https://api.openai.com/v1/responses',{method:'POST',signal:controller.signal,headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.SIHI_TRANSLATION_MODEL||'gpt-4.1-mini',store:false,instructions:'Traduza integralmente os valores textuais recebidos para português brasileiro profissional de CRM. Preserve nomes próprios, marcas, identificadores, números, preços, códigos e datas. Não resuma e não invente. Responda apenas um objeto JSON válido com as mesmas seis chaves recebidas e valores string traduzidos.',input:JSON.stringify(original),max_output_tokens:7500})})}finally{clearTimeout(timeout)}
    if(!response.ok)throw Error('Falha no serviço de tradução');
    const j=await response.json();
-   const output=(j.output||[]).flatMap((x:{content?:Array<{type?:string;text?:string}>})=>x.content||[]).filter((x:{type?:string})=>x.type==='output_text').map((x:{text?:string})=>x.text||'').join('\\n').trim();
-   const parsed=JSON.parse(output.replace(/^\x60\x60\x60(?:json)?\\s*/,'').replace(/\\s*\x60\x60\x60$/,'')) as Record<string,unknown>;
+   const output=(j.output||[]).flatMap((x:{content?:Array<{type?:string;text?:string}>})=>x.content||[]).filter((x:{type?:string})=>x.type==='output_text').map((x:{text?:string})=>x.text||'').join('\n').trim();
+   const parsed=JSON.parse(output.replace(/^\x60\x60\x60(?:json)?\s*/,'').replace(/\s*\x60\x60\x60$/,'')) as Record<string,unknown>;
    if(fields.some(f=>typeof parsed[f]!=='string'))throw Error('Formato de tradução incompleto');
    translated=Object.fromEntries(fields.map(f=>[f,String(parsed[f])]));
   }else{
