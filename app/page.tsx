@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useMemo,useState} from 'react';
-type Client={id:number;member_id:string|null;customer_name:string;segmentation:string;profile:string;countries:string;products:string;phone:string;original_notes:string;issues:string;benefits:string;status:string;next_follow_up:string|null;interactions_count:number;next_contact_owner?:string};
+type Client={id:number;member_id:string|null;customer_name:string;segmentation:string;profile:string;countries:string;products:string;phone:string;original_notes:string;issues:string;benefits:string;status:string;next_follow_up:string|null;interactions_count:number;next_contact_owner?:string;updated_at?:string};
 type Interaction={id:number;kind:string;description:string;outcome:string;created_at:string};
 const statuses:Record<string,string>={sem_contato:'Sem contato',tentativa:'Tentativa de contato',em_negociacao:'Em negociação',recuperado:'Recuperado',perdido:'Perdido'};
 const segments=['Level 1','Level 2','Level 3','In progress'];
@@ -30,13 +30,14 @@ export default function Home(){
     try{
      const cache=await fetch('/api/clients/'+cliente.id+'/ptbr',{cache:'no-store'});
      const dados=cache.ok?await cache.json():{};
-     let versao=dados.translations as Record<string,string>|undefined;
+     let versao=(dados.translations&&(!dados.source_updated_at||!cliente.updated_at||new Date(dados.source_updated_at).getTime()===new Date(cliente.updated_at).getTime()))?dados.translations as Record<string,string>:undefined;
      if(!versao){
       const traduzir=await fetch('/api/clients/'+cliente.id+'/ptbr',{method:'POST'});
       if(!traduzir.ok)continue;
       versao=(await traduzir.json()).translations;
      }
-     if(cancelado||!versao)return;
+     if(cancelado)return;
+     if(!versao)continue;
      const resumo=versao.products||versao.profile;
      if(resumo)setResumosPt(atual=>({...atual,[cliente.id]:resumo}));
     }catch{}
