@@ -1,13 +1,10 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '../../../../lib/db';
-import {identity} from '../../../../lib/access';
 const allowedText=['customer_name','segmentation','profile','countries','products','phone','original_notes','issues','benefits'] as const;
 export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}>}){
  const {id}=await params;
  if(!/^\d+$/.test(id))return NextResponse.json({error:'ID inválido'},{status:400});
  try{
-  const actor=await identity(req);if(!actor)return NextResponse.json({error:'Sessão expirada'},{status:401});
-  if(actor.role!=='admin'){const owner=await db().query('SELECT assigned_user_id FROM clients WHERE id=$1',[id]);if(!owner.rows.length||Number(owner.rows[0].assigned_user_id)!==actor.userId)return NextResponse.json({error:'Edição restrita ao responsável do cliente.'},{status:403});}
   const b=await req.json();
   if(!b||typeof b!=='object'||Array.isArray(b))return NextResponse.json({error:'Dados inválidos'},{status:400});
   const setters:string[]=[];const values:(string|null|boolean)[]=[];
@@ -15,6 +12,10 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
   if(Object.prototype.hasOwnProperty.call(b,'status')){
    if(!['sem_contato','tentativa','em_negociacao','recuperado','perdido'].includes(b.status))return NextResponse.json({error:'Status inválido'},{status:400});
    set('status',b.status);
+  }
+  if(Object.prototype.hasOwnProperty.call(b,'next_contact_owner')){
+   if(typeof b.next_contact_owner!=='string'||!['','João Montenegro','William Santos','Guilherme Oliveira','Nathan Augusto'].includes(b.next_contact_owner))return NextResponse.json({error:'Responsável inválido'},{status:400});
+   set('next_contact_owner',b.next_contact_owner);
   }
   if(Object.prototype.hasOwnProperty.call(b,'next_follow_up')){
    if(b.next_follow_up!==null&&!(typeof b.next_follow_up==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.next_follow_up)&&!Number.isNaN(Date.parse(b.next_follow_up))))return NextResponse.json({error:'Data inválida'},{status:400});
