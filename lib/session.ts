@@ -1,53 +1,11 @@
-const encoder = new TextEncoder();
-const cookieName = "sihi_session";
-const ttlSeconds = 8 * 60 * 60;
-export {cookieName,ttlSeconds};
-
-function toBase64Url(data: Uint8Array): string {
-  let s = "";
-  for (const byte of data) s += String.fromCharCode(byte);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-function fromBase64Url(s: string): Uint8Array {
-  const base64 = s.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(base64.padEnd(Math.ceil(base64.length/4)*4, "="));
-  return Uint8Array.from(binary, ch=>ch.charCodeAt(0));
-}
-async function key(): Promise<CryptoKey> {
-  const secret = process.env.CRM_ADMIN_PASSWORD;
-  if (!secret) throw new Error("CRM_ADMIN_PASSWORD não configurada");
-  return crypto.subtle.importKey("raw",encoder.encode("SIHI CRM session v1:"+secret),{name:"HMAC",hash:"SHA-256"},false,["sign","verify"]);
-}
+const encoder=new TextEncoder();
+export const cookieName='sihi_session';
+export const ttlSeconds=8*60*60;
 export type SessionIdentity={userId:number|null;role:'admin'|'agent';username:string};
-export async function createSession(identity:SessionIdentity={userId:null,role:'admin',username:'admin'}): Promise<string> {
-  const payload=JSON.stringify({v:2,exp:Math.floor(Date.now()/1000)+ttlSeconds,...identity});
-  const data=toBase64Url(encoder.encode(payload));
-  const signature=new Uint8Array(await crypto.subtle.sign("HMAC",await key(),encoder.encode(data)));
-  return data+"."+toBase64Url(signature);
-}
-export async function readSession(token?:string):Promise<SessionIdentity|null> {
-  if(!token) return null;
-  try {
-    const [data,signature,extra] = token.split(".");
-    if(!data||!signature||extra||data.length>1024) return null;
-    const payload=JSON.parse(new TextDecoder().decode(fromBase64Url(data)));
-    if(![1,2].includes(payload.v)||typeof payload.exp!=="number"||payload.exp<=Date.now()/1000||payload.exp>Date.now()/1000+ttlSeconds) return null;
-    const sig = fromBase64Url(signature);
-    const signatureBuffer = new Uint8Array(new ArrayBuffer(sig.length));
-    signatureBuffer.set(sig);
-    const valid=await crypto.subtle.verify("HMAC",await key(),signatureBuffer.buffer,encoder.encode(data));
-    if(!valid)return null;
-    if(payload.v===1)return {userId:null,role:'admin',username:process.env.CRM_ADMIN_USER||'admin'};
-    if(!['admin','agent'].includes(payload.role)||typeof payload.username!=='string'||payload.username.length>80)return null;
-    if(payload.userId!==null&&(!Number.isSafeInteger(payload.userId)||payload.userId<=0))return null;
-    if(payload.role==='agent'&&payload.userId===null)return null;
-    return {userId:payload.userId,role:payload.role,username:payload.username};
-  } catch {return null}
-}
-export async function validSession(token?:string):Promise<boolean>{return !!(await readSession(token))}
-export function equalSecrets(a:string,b:string):boolean {
-  const x=encoder.encode(a),y=encoder.encode(b);
-  let d=x.length^y.length;
-  for(let i=0;i<Math.max(x.length,y.length);i++)d|=(x[i]||0)^(y[i]||0);
-  return d===0;
-}
+function base64url(data:Uint8Array){let out='';for(const value of data)out+=String.fromCharCode(value);return btoa(out).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function fromBase64url(s:string){const normalized=s.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,'=')),ch=>ch.charCodeAt(0))}
+async function key(){const secret=process.env.CRM_SESSION_SECRET;if(!secret||secret.length<32)throw Error('Segredo de sessão não configurado');return crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify'])}
+export function equalSecrets(a:string,b:string){const x=encoder.encode(a),y=encoder.encode(b);let d=x.length^y.length;for(let i=0;i<Math.max(x.length,y.length);i++)d|=(x[i]||0)^(y[i]||0);return d===0}
+export async function createSession(identity:SessionIdentity={userId:null,role:'admin',username:'admin'}){const payload=base64url(encoder.encode(JSON.stringify({v:3,exp:Math.floor(Date.now()/1000)+ttlSeconds,...identity})));const signature=base64url(new Uint8Array(await crypto.subtle.sign('HMAC',await key(),encoder.encode(payload))));return payload+'.'+signature}
+export async function readSession(token?:string):Promise<SessionIdentity|null>{if(!token)return null;try{const [body,sig,extra]=token.split('.');if(!body||!sig||extra||body.length>1024)return null;const value=JSON.parse(new TextDecoder().decode(fromBase64url(body)));const now=Math.floor(Date.now()/1000);if(value.v!==3||!Number.isSafeInteger(value.exp)||value.exp<=now||value.exp>now+ttlSeconds)return null;if(value.username!==(process.env.CRM_ADMIN_USER||'admin')||value.role!=='admin'||value.userId!==null)return null;const raw=fromBase64url(sig);if(raw.length!==32)return null;const proof=new Uint8Array(32);proof.set(raw);const valid=await crypto.subtle.verify('HMAC',await key(),proof.buffer,encoder.encode(body));return valid?{userId:null,role:'admin',username:value.username}:null}catch{return null}}
+export async function validSession(token?:string){return !!(await readSession(token))}
