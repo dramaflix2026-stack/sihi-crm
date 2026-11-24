@@ -6,11 +6,11 @@ const fields=['profile','countries','products','original_notes','issues','benefi
 
 async function traduzirSemChave(texto:string):Promise<string>{
  if(!texto.trim())return texto;
- const partes=texto.match(/[\s\S]{1,1100}/g)||[];
+ const partes=texto.match(/[\s\S]{1,900}/g)||[];
  const traduzidas:string[]=[];
  for(const parte of partes){
-  const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q='+encodeURIComponent(parte);
-  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),12000);
+  const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q='+encodeURIComponent(parte);
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);
   try{
    const resposta=await fetch(url,{signal:controller.signal,cache:'no-store',headers:{'Accept':'application/json'}});
    if(!resposta.ok)throw Error('Tradução indisponível');
@@ -50,7 +50,10 @@ export async function POST(_req:NextRequest,{params}:{params:Promise<{id:string}
    translated=Object.fromEntries(fields.map(f=>[f,String(parsed[f])]));
   }else{
    translated={};
-   for(const f of fields)translated[f]=await traduzirSemChave(original[f]);
+   for(const f of fields){
+    if(!original[f].trim()){translated[f]='';continue}
+    translated[f]=await traduzirSemChave(original[f]);
+   }
   }
   await db().query('INSERT INTO client_ptbr_translations(client_id,translations,source_updated_at) VALUES($1,$2::jsonb,$3) ON CONFLICT(client_id) DO UPDATE SET translations=EXCLUDED.translations,source_updated_at=EXCLUDED.source_updated_at,created_at=NOW()',[id,JSON.stringify(translated),source.updated_at]);
   return NextResponse.json({translations:translated},{headers:{'Cache-Control':'no-store'}});
