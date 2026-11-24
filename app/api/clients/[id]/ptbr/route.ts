@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '../../../../../lib/db';
+import {traducoesConferidas} from '../../../../../lib/traducoes-conferidas';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const fields=['profile','countries','products','original_notes','issues','benefits'] as const;
@@ -25,7 +26,12 @@ async function traduzirSemChave(texto:string):Promise<string>{
 export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>}){
  const {id}=await params;
  if(!/^\d+$/.test(id))return NextResponse.json({error:'Cliente inválido'},{status:400});
- try{const r=await db().query('SELECT translations,source_updated_at FROM client_ptbr_translations WHERE client_id=$1',[id]);return NextResponse.json({translations:r.rows[0]?.translations||null,source_updated_at:r.rows[0]?.source_updated_at||null},{headers:{'Cache-Control':'no-store'}})}
+ try{
+  const r=await db().query('SELECT c.member_id,t.translations,t.source_updated_at FROM clients c LEFT JOIN client_ptbr_translations t ON t.client_id=c.id WHERE c.id=$1',[id]);
+  if(!r.rows.length)return NextResponse.json({error:'Cliente não encontrado'},{status:404});
+  const manual=traducoesConferidas[String(r.rows[0].member_id||'')]||{};
+  return NextResponse.json({translations:{...(r.rows[0].translations||{}),...manual},source_updated_at:Object.keys(manual).length?null:r.rows[0].source_updated_at},{headers:{'Cache-Control':'no-store'}});
+ }
  catch{return NextResponse.json({error:'Falha ao consultar tradução'},{status:500})}
 }
 export async function POST(_req:NextRequest,{params}:{params:Promise<{id:string}>}){
@@ -33,11 +39,13 @@ export async function POST(_req:NextRequest,{params}:{params:Promise<{id:string}
  if(!/^\d+$/.test(id))return NextResponse.json({error:'Cliente inválido'},{status:400});
  const apiKey=process.env.OPENAI_API_KEY;
  try{
-  const r=await db().query('SELECT profile,countries,products,original_notes,issues,benefits,updated_at FROM clients WHERE id=$1',[id]);
+  const r=await db().query('SELECT member_id,profile,countries,products,original_notes,issues,benefits,updated_at FROM clients WHERE id=$1',[id]);
   if(!r.rows.length)return NextResponse.json({error:'Cliente não encontrado'},{status:404});
   const source=r.rows[0] as Record<string,string>;
   const original=Object.fromEntries(fields.map(f=>[f,source[f]||'']));
   let translated:Record<string,string>;
+  const revisadas=traducoesConferidas[String(source.member_id||'')];
+  if(revisadas){return NextResponse.json({translations:revisadas,method:'manual_reviewed'},{headers:{'Cache-Control':'no-store'}})}
   if(apiKey){
    const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),45000);
    let response:Response;
