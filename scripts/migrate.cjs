@@ -75,6 +75,7 @@ async function main() {
  active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
  );
  ALTER TABLE clients ADD COLUMN IF NOT EXISTS assigned_user_id BIGINT REFERENCES crm_users(id) ON DELETE SET NULL;
+ ALTER TABLE clients ADD COLUMN IF NOT EXISTS next_contact_owner VARCHAR(160) NOT NULL DEFAULT '';
  CREATE INDEX IF NOT EXISTS idx_clients_assigned_user ON clients(assigned_user_id);
  CREATE TABLE IF NOT EXISTS client_assignments(
  id BIGSERIAL PRIMARY KEY,client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
