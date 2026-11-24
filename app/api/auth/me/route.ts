@@ -1,2 +1,4 @@
-import {NextResponse} from 'next/server';
-export function GET(){return NextResponse.json({user:{userId:null,role:'admin',username:'equipe'},openAccess:true},{headers:{'Cache-Control':'no-store'}})}
+import {NextRequest,NextResponse} from 'next/server';
+import {cookieName,readSession} from '../../../../lib/session';
+export const dynamic='force-dynamic';
+export async function GET(req:NextRequest){const user=await readSession(req.cookies.get(cookieName)?.value);return user?NextResponse.json({user},{headers:{'Cache-Control':'no-store'}}):NextResponse.json({error:'Sessão expirada'},{status:401,headers:{'Cache-Control':'no-store'})}
