@@ -68,6 +68,7 @@ async function main() {
  );
  CREATE INDEX IF NOT EXISTS idx_client_translations_client ON client_translations(client_id,note_id);
 
+ CREATE TABLE IF NOT EXISTS client_ptbr_translations (client_id BIGINT PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,translations JSONB NOT NULL,source_updated_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS crm_users(
  id BIGSERIAL PRIMARY KEY,full_name VARCHAR(160) NOT NULL,
  username VARCHAR(80) NOT NULL UNIQUE,password_hash TEXT NOT NULL,
