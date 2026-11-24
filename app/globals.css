@@ -61,3 +61,8 @@ th{background:#faf9f3;color:#666}td{color:#444}td b{color:#171717}.tag.tentativa
  .field{max-width:100%}
  .top .pill{font-size:10px;padding:7px 9px;white-space:nowrap}
 }
+
+/* Sair ao final do menu, com acesso também no mobile */
+.nav-exit{margin-top:auto;color:#6d5e3b;border:1px solid #e9e1c6;font-weight:600}
+.nav-exit:hover{background:#fff2c2;color:#332900}
+@media(max-width:700px){.side .nav-exit{display:flex!important;font-size:0;justify-content:center;min-height:48px;padding:10px 4px;margin-top:auto}.side .nav-exit span{font-size:23px}}
