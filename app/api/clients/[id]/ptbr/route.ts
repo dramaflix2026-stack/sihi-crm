@@ -5,23 +5,29 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const fields=['profile','countries','products','original_notes','issues','benefits'] as const;
 
+async function traduzirTrecho(texto:string):Promise<string>{
+ const rotas=[
+  'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q='+encodeURIComponent(texto),
+  'https://api.mymemory.translated.net/get?langpair=en%7Cpt-BR&q='+encodeURIComponent(texto)
+ ];
+ for(let i=0;i<rotas.length;i++){
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),9000);
+  try{
+   const resposta=await fetch(rotas[i],{signal:controller.signal,cache:'no-store',headers:{Accept:'application/json'}});
+   if(!resposta.ok)continue;
+   const j=await resposta.json();
+   const resultado=i===0?(Array.isArray(j?.[0])?j[0].map((s:unknown)=>Array.isArray(s)?String(s[0]||''):'').join(''):''):String(j?.responseData?.translatedText||'');
+   if(resultado.trim()&&resultado.toLowerCase()!=='null'&&!/MYMEMORY WARNING/i.test(resultado))return resultado;
+  }catch{}finally{clearTimeout(timeout)}
+ }
+ throw Error('Nenhum tradutor respondeu');
+}
 async function traduzirSemChave(texto:string):Promise<string>{
  if(!texto.trim())return texto;
- const partes=texto.match(/[\s\S]{1,900}/g)||[];
- const traduzidas:string[]=[];
- for(const parte of partes){
-  const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q='+encodeURIComponent(parte);
-  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);
-  try{
-   const resposta=await fetch(url,{signal:controller.signal,cache:'no-store',headers:{'Accept':'application/json'}});
-   if(!resposta.ok)throw Error('Tradução indisponível');
-   const dados=await resposta.json();
-   const resultado=(dados?.[0]||[]).map((segmento:unknown)=>Array.isArray(segmento)?String(segmento[0]||''):'').join('');
-   if(!resultado.trim())throw Error('Tradução vazia');
-   traduzidas.push(resultado);
-  }finally{clearTimeout(timeout)}
- }
- return traduzidas.join('');
+ const partes=texto.match(/[\\s\\S]{1,430}/g)||[];
+ const resultado:string[]=[];
+ for(const parte of partes)resultado.push(await traduzirTrecho(parte));
+ return resultado.join('');
 }
 export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>}){
  const {id}=await params;
@@ -61,9 +67,10 @@ export async function POST(_req:NextRequest,{params}:{params:Promise<{id:string}
    translated={};
    for(const f of fields){
     if(!original[f].trim()){translated[f]='';continue}
-    translated[f]=await traduzirSemChave(original[f]);
+    try{translated[f]=await traduzirSemChave(original[f])}catch{translated[f]=''}
    }
   }
+  if(!Object.values(translated).some(x=>x.trim()))return NextResponse.json({error:'Tradução temporariamente indisponível. Conteúdo original preservado.'},{status:503});
   await db().query('INSERT INTO client_ptbr_translations(client_id,translations,source_updated_at) VALUES($1,$2::jsonb,$3) ON CONFLICT(client_id) DO UPDATE SET translations=EXCLUDED.translations,source_updated_at=EXCLUDED.source_updated_at,created_at=NOW()',[id,JSON.stringify(translated),source.updated_at]);
   return NextResponse.json({translations:translated},{headers:{'Cache-Control':'no-store'}});
  }catch{return NextResponse.json({error:'Não foi possível traduzir este registro automaticamente. Os dados originais foram preservados.'},{status:502})}
