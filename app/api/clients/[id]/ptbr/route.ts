@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '../../../../../lib/db';
 import {traducoesConferidas} from '../../../../../lib/traducoes-conferidas';
+import {traduzirTrechosConferidos} from '../../../../../lib/trechos-ptbr';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const fields=['profile','countries','products','original_notes','issues','benefits'] as const;
@@ -33,11 +34,22 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const {id}=await params;
  if(!/^\d+$/.test(id))return NextResponse.json({error:'Cliente inválido'},{status:400});
  try{
-  const r=await db().query('SELECT c.member_id,t.translations,t.source_updated_at FROM clients c LEFT JOIN client_ptbr_translations t ON t.client_id=c.id WHERE c.id=$1',[id]);
+  const r=await db().query('SELECT c.member_id,c.profile,c.countries,c.products,c.original_notes,c.issues,c.benefits,c.updated_at,t.translations,t.source_updated_at FROM clients c LEFT JOIN client_ptbr_translations t ON t.client_id=c.id WHERE c.id=$1',[id]);
   if(!r.rows.length)return NextResponse.json({error:'Cliente não encontrado'},{status:404});
-  const manual=traducoesConferidas[String(r.rows[0].member_id||'')]||{};
-  const dados={...(r.rows[0].translations||{}),...manual};
-  return NextResponse.json({translations:Object.keys(dados).length?dados:null,source_updated_at:Object.keys(manual).length?null:r.rows[0].source_updated_at},{headers:{'Cache-Control':'no-store'}});
+  const cliente=r.rows[0] as Record<string,unknown>;
+  const manual=traducoesConferidas[String(cliente.member_id||'')]||{};
+  const vigente=!!cliente.source_updated_at&&new Date(String(cliente.source_updated_at)).getTime()===new Date(String(cliente.updated_at)).getTime();
+  const cache=(vigente&&cliente.translations&&typeof cliente.translations==='object'?cliente.translations:{}) as Record<string,string>;
+  const dados:Record<string,string>={...cache,...manual};
+  let houveTraducaoConferida=Object.keys(manual).length>0;
+  for(const campo of fields){
+    if(manual[campo])continue;
+    const original=String(cliente[campo]||'');
+    if(!original.trim())continue;
+    const revisado=traduzirTrechosConferidos(original);
+    if(revisado!==original){dados[campo]=revisado;houveTraducaoConferida=true}
+  }
+  return NextResponse.json({translations:Object.keys(dados).length?dados:null,source_updated_at:houveTraducaoConferida?null:cliente.source_updated_at||null},{headers:{'Cache-Control':'no-store'}});
  }
  catch{return NextResponse.json({error:'Falha ao consultar tradução'},{status:500})}
 }
