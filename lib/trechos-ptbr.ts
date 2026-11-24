@@ -131,8 +131,8 @@ export const trechosConferidos:Array<[string,string]> = [
 export function traduzirTrechosConferidos(texto:string):string{
  let saida=texto||'';
  for(const [original,traducao] of trechosConferidos){
-   const index=saida.toLocaleLowerCase('en-US').indexOf(original.toLocaleLowerCase('en-US'));
-   if(index>=0)saida=saida.slice(0,index)+traducao+saida.slice(index+original.length);
+   const pattern=original.split(/\s+/).map(p=>p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s+');
+   try{saida=saida.replace(new RegExp(pattern,'gi'),traducao)}catch{}
  }
  return saida;
 }
