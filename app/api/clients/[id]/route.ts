@@ -14,7 +14,7 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
    set('status',b.status);
   }
   if(Object.prototype.hasOwnProperty.call(b,'next_contact_owner')){
-   if(typeof b.next_contact_owner!=='string'||!['','João Montenegro','William Santos','Guilherme Oliveira','Nathan Augusto'].includes(b.next_contact_owner))return NextResponse.json({error:'Responsável inválido'},{status:400});
+   if(typeof b.next_contact_owner!=='string'||!['','João','William','Guilherme','Nathan','Giovane'].includes(b.next_contact_owner))return NextResponse.json({error:'Responsável inválido'},{status:400});
    set('next_contact_owner',b.next_contact_owner);
   }
   if(Object.prototype.hasOwnProperty.call(b,'next_follow_up')){
