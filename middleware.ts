@@ -4,8 +4,22 @@ export async function middleware(req:NextRequest){
  const pathname=req.nextUrl.pathname;
  const isApi=pathname.startsWith('/api/');
  if(isApi&&!['GET','HEAD','OPTIONS'].includes(req.method)){
+  // Railway termina HTTPS antes de encaminhar para o Next.js; req.nextUrl.origin
+  // pode conter a origem interna do proxy e não a URL exibida no navegador.
   const origin=req.headers.get('origin');
-  if(origin&&origin!==req.nextUrl.origin)return NextResponse.json({error:'Origem inválida'},{status:403});
+  if(origin){
+   let permitted=false;
+   try{
+    const parsed=new URL(origin);
+    const forwardedHost=(req.headers.get('x-forwarded-host')||'').split(',')[0].trim().toLowerCase();
+    const requestHost=(req.headers.get('host')||'').toLowerCase();
+    const knownPublicHost='sihi-crm-web-production.up.railway.app';
+    const incomingHost=parsed.host.toLowerCase();
+    permitted=(parsed.protocol==='https:'||process.env.NODE_ENV!=='production')&&
+      (incomingHost===knownPublicHost||incomingHost===forwardedHost||incomingHost===requestHost);
+   }catch{}
+   if(!permitted)return NextResponse.json({error:'Origem inválida'},{status:403});
+  }
  }
  if(pathname==='/sair'){
   const res=NextResponse.redirect(new URL('/login',req.url));
