@@ -17,5 +17,8 @@ export const traducoesConferidas:Record<string,Record<string,string>> = {
   },
   U098290: {
     profile: 'Japão — moletom de modelagem ampla com estampa temática de animais de estimação.'
+  },
+  U014376: {
+    profile: 'Relógio.'
   }
 };
